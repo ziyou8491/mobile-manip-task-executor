@@ -1,0 +1,20 @@
+# ROS2 build outputs
+build/
+install/
+log/
+
+# Colcon / Python cache
+*.pyc
+__pycache__/
+
+# VS Code
+.vscode/
+
+# Bags and databases
+*.bag
+*.db3
+*.mcap
+
+# Temporary files
+*.swp
+*.tmp

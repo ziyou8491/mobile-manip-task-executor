@@ -1,0 +1,9 @@
+geometry_msgs/PoseStamped object_pose
+string task_type
+float64 approach_distance
+---
+bool success
+string message
+---
+float32 progress
+string current_state
