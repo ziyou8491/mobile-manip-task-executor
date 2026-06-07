@@ -37,6 +37,7 @@ ament_target_dependencies(task_executor_node
   rclcpp
   geometry_msgs
   std_msgs
+  std_srvs
   mobile_manip_interfaces
 )
 
