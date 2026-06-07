@@ -197,7 +197,7 @@ private:
       return;
     }
 
-    estop_active_ = true;
+    estop_active_ = false;
     current_task_state_ = has_object_pose_? "OBJECT_DETECTED" : "IDLE";
     task_message_ = "Emergency stop cleared. Mode remains: " + mode_;
 
