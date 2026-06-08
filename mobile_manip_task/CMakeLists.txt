@@ -35,6 +35,7 @@ add_executable(task_executor_node src/task_executor_node.cpp)
   
 ament_target_dependencies(task_executor_node
   rclcpp
+  rclcpp_action
   geometry_msgs
   std_msgs
   std_srvs
