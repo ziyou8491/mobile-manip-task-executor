@@ -39,8 +39,21 @@ def generate_launch_description():
         output='screen'
     )
 
+    static_tansform_publisher = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='base_to_camera_tf',
+        arguments=[
+            '0.3', '0.0', '0.5',
+            '0.0', '0.0', '0.0',
+            'base_link',
+            'camera_frame'
+        ]
+    )
+
     return LaunchDescription([
         fake_vision_node,
         robot_state_node,
         task_executor_node,
+        static_tansform_publisher,
     ])

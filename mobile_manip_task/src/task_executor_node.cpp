@@ -11,6 +11,12 @@
 #include "std_msgs/msg/string.hpp"
 #include "std_srvs/srv/trigger.hpp"
 
+#include "tf2_ros/buffer.h"
+#include "tf2_ros/transform_listener.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
+#include "tf2/exceptions.h"
+#include "tf2/time.h"
+
 #include "mobile_manip_interfaces/msg/task_state.hpp"
 #include "mobile_manip_interfaces/srv/set_mode.hpp"
 #include "mobile_manip_interfaces/action/execute_object_task.hpp"
@@ -53,6 +59,16 @@ public:
       10
     );
 
+    object_pose_base_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
+      "/object_pose_base",
+      10
+    );
+
+    // tf
+    tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+    // timer
     timer_ = this->create_wall_timer(
       500ms,
       std::bind(&TaskExecutorNode::publishTaskState, this)
@@ -88,6 +104,27 @@ public:
   }
 
 private:
+
+  // tf
+  bool transformPoseToBaseLink(
+    const geometry_msgs::msg::PoseStamped & input_pose,
+    geometry_msgs::msg::PoseStamped & output_pose,
+    std::string & error_message
+  )
+  {
+    if (input_pose.header.frame_id.empty()) {
+      error_message = "Input object pose has empty frame_id.";
+      return false;
+    }
+
+    try {
+      output_pose = tf_buffer_->transform(input_pose, "base_link", tf2::durationFromSec(0.2));
+      return true;
+    } catch (const tf2::TransformException & ex) {
+      error_message = "Failed to transform object pose from " + input_pose.header.frame_id + " to base_link: " + ex.what();
+      return false;
+    }
+  }
 
   // subscription callback
   void objectPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
@@ -352,8 +389,24 @@ private:
     const auto task_object_pose = goal->object_pose;
     auto feedback = std::make_shared<ExecuteObjectTask::Feedback>();
     auto result = std::make_shared<ExecuteObjectTask::Result>();
+
+    geometry_msgs::msg::PoseStamped object_pose_base;
+    std::string transform_error;
+
+    if (!transformPoseToBaseLink(task_object_pose, object_pose_base, transform_error)) {
+      setTaskState("FAILED", transform_error);
+
+      result->success = false;
+      result->message = transform_error;
+      goal_handle->abort(result);
+
+      finishTask();
+      return;
+    }
+
+    object_pose_base_pub_->publish(object_pose_base);
     
-    if (task_object_pose.pose.position.x > 2.0) {
+    if (object_pose_base.pose.position.x > 2.0) {
       setTaskState("FAILED", "Object is outside the mock reachable range.");
       result->success = false;
       result->message = "Object is outside the mock reachable range.";
@@ -469,6 +522,7 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr object_pose_sub_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr robot_state_sub_;
   rclcpp::Publisher<mobile_manip_interfaces::msg::TaskState>::SharedPtr task_state_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr object_pose_base_pub_;
   rclcpp::TimerBase::SharedPtr timer_;
 
   rclcpp::Service<mobile_manip_interfaces::srv::SetMode>::SharedPtr set_mode_srv_;
@@ -489,6 +543,9 @@ private:
   bool action_in_progress_;
 
   std::mutex state_mutex_;
+
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 };
 
 int main(int argc, char ** argv)
